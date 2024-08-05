@@ -425,6 +425,15 @@ def start_trans(dir_name, rss, l):
     for i in range(0, len(files) // 50 + 1):
         start(dir_id=dir_str_id, files=files[i * 50 : (i + 1) * 50])
 
+cache = {}
+def get_podcast(ids):
+    podcast_page_id = podcast[0].get("id")
+    if id not in cache:
+        podcast_properties = notion_helper.client.pages.retrieve(
+            podcast_page_id
+        ).get("properties")
+        cache[podcast_page_id] = properties
+    return cache.get(podcast_page_id)
 
 if __name__ == "__main__":
     notion_helper = NotionHelper()
@@ -449,9 +458,7 @@ if __name__ == "__main__":
     for episode in episodes:
         episode_properties = episode.get("properties")
         podcast = utils.get_property_value(episode_properties.get("Podcast"))
-        podcast_properties = notion_helper.client.pages.retrieve(
-            podcast[0].get("id")
-        ).get("properties")
+        podcast_properties = get_podcast(podcast)
         podcast_title = utils.get_property_value(podcast_properties.get("播客"))
         rss = utils.get_property_value(podcast_properties.get("rss"))
         title = utils.get_property_value(episode_properties.get("标题"))
