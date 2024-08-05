@@ -432,7 +432,7 @@ def get_podcast(ids):
         podcast_properties = notion_helper.client.pages.retrieve(
             podcast_page_id
         ).get("properties")
-        cache[podcast_page_id] = properties
+        cache[podcast_page_id] = podcast_properties
     return cache.get(podcast_page_id)
 
 if __name__ == "__main__":
