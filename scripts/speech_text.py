@@ -230,7 +230,7 @@ def insert_mindmap(block_id, children):
         block_id=block_id,
         children=blocks,
     ).get("results")
-    for index,child in enumerate(children):
+    for index, child in enumerate(children):
         if child.get("children"):
             insert_mindmap(results[index].get("id"), child.get("children"))
 
@@ -375,7 +375,7 @@ def start(dir_id, files):
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=5000)
-def queryNetSourceParse(task_id, dir_id, l):
+def queryNetSourceParse(task_id, dir_id):
     payload = {"action": "queryNetSourceParse", "version": "1.0", "taskId": task_id}
     url = "https://tw-efficiency.biz.aliyun.com/api/trans/queryNetSourceParse?c=tongyi-web"
     response = requests.post(url, headers=headers, json=payload)
@@ -387,8 +387,6 @@ def queryNetSourceParse(task_id, dir_id, l):
         if status == 0:
             urls = data.get("urls")
             for url in urls:
-                if url.get("showName") not in l:
-                    continue
                 results.append(
                     {
                         "fileId": url.get("fileId"),
@@ -407,13 +405,16 @@ def queryNetSourceParse(task_id, dir_id, l):
                     }
                 )
             return results
-        else:
+        elif status == -1:
             time.sleep(1)
-            return queryNetSourceParse(task_id=task_id, dir_id=dir_id, l=l)
+            return queryNetSourceParse(task_id=task_id, dir_id=dir_id)
+        else:
+            print(f"query source data = {status}")
+            return None
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=5000)
-def start_trans(dir_name, rss, l):
+def start_trans(dir_name, rss):
     print(f"开始转写{dir_name}")
     dir = list(filter(lambda x: x.get("dir").get("dirName") == dir_name, all_dirs))
     if len(dir) > 0:
@@ -421,19 +422,23 @@ def start_trans(dir_name, rss, l):
     else:
         dir_str_id = create_dir(dir_name)
     task_id = parseNetSourceUrl(rss)
-    files = queryNetSourceParse(task_id=task_id, dir_id=dir_str_id, l=l)
+    files = queryNetSourceParse(task_id=task_id, dir_id=dir_str_id)
     for i in range(0, len(files) // 50 + 1):
         start(dir_id=dir_str_id, files=files[i * 50 : (i + 1) * 50])
 
+
 cache = {}
+
+
 def get_podcast(ids):
     podcast_page_id = podcast[0].get("id")
     if id not in cache:
-        podcast_properties = notion_helper.client.pages.retrieve(
-            podcast_page_id
-        ).get("properties")
+        podcast_properties = notion_helper.client.pages.retrieve(podcast_page_id).get(
+            "properties"
+        )
         cache[podcast_page_id] = podcast_properties
     return cache.get(podcast_page_id)
+
 
 if __name__ == "__main__":
     notion_helper = NotionHelper()
@@ -465,8 +470,8 @@ if __name__ == "__main__":
         children = []
         # 20 正在转 30是成功 40是失败
         if title not in results:
-            title = emoji.replace_emoji(title, replace='')
-            title = re.sub(r'\s+', ' ', title).strip()
+            title = emoji.replace_emoji(title, replace="")
+            title = re.sub(r"\s+", " ", title).strip()
         if title in records:
             if records.get(title).get("recordStatus") != 30:
                 continue
@@ -527,7 +532,6 @@ if __name__ == "__main__":
         else:
             if podcast_title and rss:
                 if podcast_title not in results:
-                    results[podcast_title] = (rss, [])
-                results.get(podcast_title)[1].append(title)
+                    results[podcast_title] = rss
     for key, value in results.items():
-        start_trans(key, value[0], value[1])
+        start_trans(key, value)
