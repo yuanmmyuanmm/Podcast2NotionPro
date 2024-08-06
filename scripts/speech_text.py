@@ -206,16 +206,19 @@ def get_all_lab_info(transId):
                         summary = contentValue.get("summary")
                         if summary:
                             children.append(utils.get_callout(summary, {"emoji": "💡"}))
-                    if name == "qa问答":
+                    if name == "qa问答" and contentValue.get("extensions"):
+                        print(f'extensions= {contentValue.get("extensions")}')
                         title = contentValue.get("title")
                         value = contentValue.get("value")
-                        beginTime = (
-                            contentValue.get("extensions")[0]
-                            .get("sentenceInfoOfAnswer")[0]
-                            .get("beginTime")
-                        )
-                        beginTime = utils.format_milliseconds(beginTime)
-                        title = f"{beginTime} {title}"
+                        if contentValue.get("extensions")[0].get("sentenceInfoOfAnswer"):
+                            beginTime = (
+                                contentValue.get("extensions")[0]
+                                .get("sentenceInfoOfAnswer")[0]
+                                .get("beginTime")
+                            )
+                            if beginTime:
+                                beginTime = utils.format_milliseconds(beginTime)
+                                title = f"{beginTime} {title}"
                         children.append(utils.get_heading(3, title))
                         children.append(utils.get_callout(value, {"emoji": "💡"}))
         return (children, mindmap)
@@ -409,7 +412,7 @@ def queryNetSourceParse(task_id, dir_id):
             time.sleep(1)
             return queryNetSourceParse(task_id=task_id, dir_id=dir_id)
         else:
-            print(f"query source data = {status}")
+            print(f"query source data = {data}")
             return None
 
 
@@ -423,15 +426,17 @@ def start_trans(dir_name, rss):
         dir_str_id = create_dir(dir_name)
     task_id = parseNetSourceUrl(rss)
     files = queryNetSourceParse(task_id=task_id, dir_id=dir_str_id)
-    for i in range(0, len(files) // 50 + 1):
-        start(dir_id=dir_str_id, files=files[i * 50 : (i + 1) * 50])
+    if files:
+        print(f"files = {files}")
+        for i in range(0, len(files) // 50 + 1):
+            start(dir_id=dir_str_id, files=files[i * 50 : (i + 1) * 50])
 
 
 cache = {}
 
 
 def get_podcast(ids):
-    podcast_page_id = podcast[0].get("id")
+    podcast_page_id = ids[0].get("id")
     if id not in cache:
         podcast_properties = notion_helper.client.pages.retrieve(podcast_page_id).get(
             "properties"
@@ -446,6 +451,7 @@ if __name__ == "__main__":
     f = {
         "and": [
             {"property": "语音转文字状态", "status": {"does_not_equal": "Done"}},
+            {"property": "Podcast", "relation": {"is_not_empty": True}},
         ]
     }
     episodes = notion_helper.query_all_by_filter(
@@ -462,6 +468,7 @@ if __name__ == "__main__":
     results = {}
     for episode in episodes:
         episode_properties = episode.get("properties")
+        print(episode_properties)
         podcast = utils.get_property_value(episode_properties.get("Podcast"))
         podcast_properties = get_podcast(podcast)
         podcast_title = utils.get_property_value(podcast_properties.get("播客"))
